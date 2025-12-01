@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import os
 from fuzzywuzzy import fuzz
+import io
 
 # ============================================================
 # CONFIG — TOLERANCE SETTINGS
@@ -13,6 +14,7 @@ MV_TOLERANCE = 0.20   # Default 20% range for Market Value match (–0.2 to +0.2
 # SAFE VALUE FOR EXCEL (Fixes NaN/INF problem)
 # ============================================================
 def safe_excel_value(val):
+    """Convert invalid Excel values (NaN/inf) into empty strings."""
     try:
         if pd.isna(val) or (isinstance(val, float) and (np.isnan(val) or np.isinf(val))):
             return ""
@@ -49,109 +51,152 @@ def get_state_tax_rate(state):
     return state_tax_rates.get(state, 0)
 
 # ============================================================
-# MAIN STREAMLIT FUNCTION
+# INPUT FILTERS
+# ============================================================
+PROPERTY_FILTER = None
+OWNER_FILTER = None
+HOTEL_FILTER = None
+
+# ============================================================
+# EXCEL FILE UPLOAD (FROM STREAMLIT)
+# ============================================================
+def load_data(file):
+    df = pd.read_excel(file)
+    df.columns = [col.strip() for col in df.columns]
+
+    for col in ['No. of Rooms', 'Market Value-2024', '2024 VPR']:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    df = df.dropna(subset=['No. of Rooms', 'Market Value-2024', '2024 VPR'])
+
+    hotel_class_map = {
+        "Budget (Low End)": 1,
+        "Economy (Name Brand)": 2,
+        "Midscale": 3,
+        "Upper Midscale": 4,
+        "Upscale": 5,
+        "Upper Upscale First Class": 6,
+        "Luxury Class": 7,
+        "Independent Hotel": 8
+    }
+
+    df["Hotel Class Order"] = df["Hotel Class"].map(hotel_class_map)
+    df = df.dropna(subset=["Hotel Class Order"])
+    df["Hotel Class Order"] = df["Hotel Class Order"].astype(int)
+
+    return df
+
+# ============================================================
+# MAIN LOGIC: Matching Logic
+# ============================================================
+def run_matching(df, mv_tolerance, max_matches, selected_properties):
+    match_columns = [
+        'Property Address', 'State', 'Property County', 'Project / Hotel Name',
+        'Owner Name/ LLC Name', 'No. of Rooms', 'Market Value-2024',
+        '2024 VPR', 'Hotel Class'
+    ]
+
+    all_columns = list(df.columns)
+    results = []
+    match_case_count = 0
+    no_match_case_count = 0
+
+    # Loop through properties and find matches
+    for i in range(len(df)):
+        base = df.iloc[i]
+        mv = base['Market Value-2024']
+        vpr = base['2024 VPR']
+        rooms = base["No. of Rooms"]
+
+        if base['Property Address'] not in selected_properties:
+            continue
+
+        subset = df[df.index != i]
+
+        mv_min = mv * (1 - mv_tolerance)
+        mv_max = mv * (1 + mv_tolerance)
+
+        mask = (
+            (subset['State'] == base['State']) &
+            (subset['Property County'] == base['Property County']) &
+            (subset['No. of Rooms'] < rooms) &
+            (subset['Market Value-2024'].between(mv_min, mv_max)) &
+            (subset['2024 VPR'] < vpr)
+        )
+
+        matches = subset[mask].drop_duplicates(
+            subset=['Project / Hotel Name', 'Property Address', 'Owner Name/ LLC Name']
+        )
+
+        if not matches.empty:
+            match_case_count += 1
+            results.append(matches.head(max_matches))  # Collect top matches
+        else:
+            no_match_case_count += 1
+
+    return results, match_case_count, no_match_case_count
+
+# ============================================================
+# STREAMLIT APP SETUP
 # ============================================================
 def main():
     st.title("🏨 Hotel Comparable Matcher Tool final")
 
-    # Upload Excel File
+    # Step 1: Upload Excel file
     uploaded_file = st.file_uploader("📤 Upload Excel File", type=["xlsx"])
 
     if uploaded_file:
-        # Load data into DataFrame
-        df = pd.read_excel(uploaded_file)
-        df.columns = [col.strip() for col in df.columns]
-        for col in ['No. of Rooms', 'Market Value-2024', '2024 VPR']:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-        df = df.dropna(subset=['No. of Rooms', 'Market Value-2024', '2024 VPR'])
-        
-        # Prepare Hotel Class Map
-        hotel_class_map = {
-            "Budget (Low End)": 1,
-            "Economy (Name Brand)": 2,
-            "Midscale": 3,
-            "Upper Midscale": 4,
-            "Upscale": 5,
-            "Upper Upscale First Class": 6,
-            "Luxury Class": 7,
-            "Independent Hotel": 8
-        }
-        df["Hotel Class Order"] = df["Hotel Class"].map(hotel_class_map)
-        df = df.dropna(subset=["Hotel Class Order"])
-        df["Hotel Class Order"] = df["Hotel Class Order"].astype(int)
+        df = load_data(uploaded_file)
 
-        # Property Address Selection (with "Select All" option)
-        property_address_options = df['Property Address'].unique()
-        selected_addresses = st.multiselect(
-            "🏨 Select Property Address", property_address_options.tolist(), default=property_address_options.tolist())
+        # Step 2: Select Properties
+        properties = df['Property Address'].unique()
+        selected_properties = st.multiselect(
+            "🏨 Select Property Address",
+            options=properties,
+            default=properties[:5]  # Default first 5 properties
+        )
 
-        # Market Value Filter: Automated or Manual
-        reduction_mode = st.radio("🔽🔼 Market Value Filter Mode", ["Automated", "Manual"])
-        
+        # Step 3: Market Value Filter
+        reduction_mode = st.radio(
+            "🔽🔼 Market Value Increase/decrease Filter",
+            options=["Automated", "Manual"]
+        )
+
+        global MV_TOLERANCE
+
         if reduction_mode == "Manual":
             MV_TOLERANCE = st.number_input(
-                "🔽🔼 Market Value Increase/Decrease Filter (%)",
+                "🔽🔼 Market Value Increase/decrease Filter (%)",
                 min_value=0.0,
                 max_value=500.0,
-                value=20.0,  # Default is 20%
+                value=20.0,     # Default 20%
                 step=1.0
             ) / 100
         else:
-            MV_TOLERANCE = 0.20  # Default automated filter
+            MV_TOLERANCE = 0.20
 
-        # Max Matches Per Hotel
+        # Step 4: Max Matches per Hotel
         max_matches = st.slider("🔢 Max Matches Per Hotel", min_value=1, max_value=10, value=5)
 
-        # Run Matching Button
-        run_button = st.button("🚀 Run Matching")
+        # Step 5: Run Matching
+        if st.button("🚀 Run Matching"):
+            if uploaded_file and selected_properties:
+                results, match_case_count, no_match_case_count = run_matching(df, MV_TOLERANCE, max_matches, selected_properties)
 
-        if run_button:
-            # Filter the DataFrame based on the selected property addresses
-            filtered_df = df[df['Property Address'].isin(selected_addresses)]
+                # Display results table
+                if results:
+                    result_df = pd.concat(results)
+                    st.write(f"Input Rows: {len(df)}")
+                    st.write(f"Output Matches: {match_case_count} | No Matches: {no_match_case_count}")
+                    st.write(result_df)
 
-            results = []
-            match_case_count = 0
-            no_match_case_count = 0
-
-            # Main Matching Logic
-            for i in range(len(filtered_df)):
-                base = filtered_df.iloc[i]
-                mv = base['Market Value-2024']
-                vpr = base['2024 VPR']
-                rooms = base["No. of Rooms"]
-
-                subset = filtered_df[filtered_df.index != i]
-                mv_min = mv * (1 - MV_TOLERANCE)
-                mv_max = mv * (1 + MV_TOLERANCE)
-
-                mask = (
-                    (subset['State'] == base['State']) &
-                    (subset['Property County'] == base['Property County']) &
-                    (subset['No. of Rooms'] < rooms) &
-                    (subset['Market Value-2024'].between(mv_min, mv_max)) &
-                    (subset['2024 VPR'] < vpr) &
-                    (subset['Hotel Class Order'].isin([base['Hotel Class Order']])))
-                matches = subset[mask].drop_duplicates(subset=['Project / Hotel Name', 'Property Address', 'Owner Name/ LLC Name'])
-
-                if not matches.empty:
-                    match_case_count += 1
-                    results.append(matches.head(max_matches))
+                    # Provide download button for results
+                    csv = result_df.to_csv(index=False)
+                    st.download_button("Download Full Results", csv, file_name="matching_results.csv", mime="text/csv")
                 else:
-                    no_match_case_count += 1
-
-            # Display results table
-            if results:
-                result_df = pd.concat(results)
-                st.write(f"Input Rows: {len(filtered_df)}")
-                st.write(f"Output Matches: {match_case_count} | No Matches: {no_match_case_count}")
-                st.write(result_df)
-
-                # Provide download button for results
-                csv = result_df.to_csv(index=False)
-                st.download_button("Download Full Results", csv, file_name="matching_results.csv", mime="text/csv")
-
+                    st.write("No matches found!")
             else:
-                st.write("No matches found!")
+                st.write("Please upload a file and select properties.")
 
 if __name__ == "__main__":
     main()
