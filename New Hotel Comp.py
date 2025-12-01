@@ -182,7 +182,6 @@ def main():
                 # Provide download button for results
                 csv = result_df.to_csv(index=False)
                 st.download_button("Download Full Results", csv, file_name="matching_results.csv", mime="text/csv")
-
             else:
                 st.write("No matches found!")
 
