@@ -14,19 +14,18 @@ def safe_excel_value(val):
         return val
     except:
         return ""
- 
+
 def normalize_string(s):
     return ''.join(e for e in str(s).lower() if e.isalnum())
-
-def get_state_tax_rate(state):
-    return state_tax_rates.get(state, 0)
 
 def fuzzy_match(val, query, threshold=90):
     if pd.isna(val):
         return False
     return fuzz.partial_ratio(str(val).lower(), str(query).lower()) >= threshold
 
- 
+def get_state_tax_rate(state):
+    return state_tax_rates.get(state, 0)
+
 # ============================================================
 # STATE TAX RATES
 # ============================================================
@@ -52,11 +51,12 @@ hotel_class_map = {
 # ============================================================
 # STREAMLIT UI
 # ============================================================
-st.title("Hotel Tax Assessment Comparator")
-st.write("Upload file → choose tolerance → view results → download output.")
+st.title("🏨 Hotel Tax Assessment Comparator")
+st.write("Upload file → choose tolerance → select subjects → run → view results → download output.")
 
-uploaded = st.file_uploader("Upload Excel File", type=["xlsx"])
+uploaded = st.file_uploader("📂 Upload Excel File", type=["xlsx"])
 
+# TOLERANCE MODE
 reduction_mode = st.radio(
     "Market Value Tolerance Mode",
     ["Automatic (±20%)", "Manual"],
@@ -67,14 +67,17 @@ if reduction_mode == "Manual":
 else:
     MV_TOLERANCE = 0.20
 
+# NUMBER OF RESULTS
 max_results_per_row = st.number_input(
     "Select Number of Results to Display",
     min_value=1, max_value=10, value=5
 )
 
+# ============================================================
+# MAIN FILE LOAD LOGIC
+# ============================================================
 if uploaded is not None:
 
-    # ----------------- LOAD DATA ------------------
     df = pd.read_excel(uploaded)
     df.columns = [c.strip() for c in df.columns]
 
@@ -86,14 +89,44 @@ if uploaded is not None:
     df = df.dropna(subset=["Hotel Class Order"])
     df["Hotel Class Order"] = df["Hotel Class Order"].astype(int)
 
-    # ----------------- MATCH LOGIC ------------------
+    # ============================================================
+    # SUBJECT SELECTION
+    # ============================================================
+    st.subheader("Select Subject Property(s)")
+
+    subject_list = df["Project / Hotel Name"].unique().tolist()
+
+    selection = st.multiselect(
+        "Choose Subject(s)",
+        options=["Select All"] + subject_list,
+        default="Select All"
+    )
+
+    if "Select All" in selection:
+        selected_subjects = subject_list
+    else:
+        selected_subjects = selection
+
+    # RUN BUTTON
+    run_process = st.button("▶️ Run Comparison")
+
+    if not run_process:
+        st.warning("Click **Run Comparison** to generate results.")
+        st.stop()
+
+    # FILTER DF TO ONLY SELECTED SUBJECTS
+    df_subjects = df[df["Project / Hotel Name"].isin(selected_subjects)]
+
+    # ============================================================
+    # MATCHING LOGIC
+    # ============================================================
     all_results = []
 
-    for i in range(len(df)):
-        base = df.iloc[i]
+    for i in range(len(df_subjects)):
+        base = df_subjects.iloc[i]
 
         mv, vpr, rooms = base["Market Value-2024"], base["2024 VPR"], base["No. of Rooms"]
-        subset = df[df.index != i]
+        subset = df[df.index != base.name]
 
         allowed = {
             1:[1,2,3],2:[1,2,3,4],3:[2,3,4,5],4:[3,4,5,6],
@@ -113,7 +146,6 @@ if uploaded is not None:
 
         matches = subset[mask]
 
-        # ---------- IF NO MATCH ----------
         if matches.empty:
             all_results.append({
                 "Base Property": base["Project / Hotel Name"],
@@ -123,13 +155,13 @@ if uploaded is not None:
             })
             continue
 
-        # ---------- NEAREST 3 ----------
+        # Nearest 3
         temp = matches.copy()
         temp["dist"] = ((temp["Market Value-2024"] - mv)**2 +
                         (temp["2024 VPR"] - vpr)**2)**0.5
         nearest = temp.sort_values("dist").head(3).drop(columns="dist")
 
-        # ---------- REMAINING ----------
+        # Remaining matches
         rem = matches.drop(nearest.index)
         least = rem.sort_values(["Market Value-2024","2024 VPR"]).head(1)
         rem = rem.drop(least.index)
@@ -137,7 +169,7 @@ if uploaded is not None:
 
         final_selection = pd.concat([nearest, least, top]).head(max_results_per_row)
 
-        # ---------- OVERPAID ----------
+        # OVERPAID CALC
         median_vpr = final_selection["2024 VPR"].head(3).median()
         state_rate = get_state_tax_rate(base["State"])
         assessed = median_vpr * rooms * state_rate
@@ -152,9 +184,9 @@ if uploaded is not None:
         })
 
     # ============================================================
-    # DISPLAY RESULTS IN STREAMLIT TABLE
+    # DISPLAY SUMMARY
     # ============================================================
-    st.subheader("Final Computed Results")
+    st.subheader("📊 Final Computed Results")
 
     display_rows = []
     for res in all_results:
@@ -167,9 +199,8 @@ if uploaded is not None:
     summary_df = pd.DataFrame(display_rows)
     st.dataframe(summary_df)
 
-    # Show detailed result for each base
-    st.subheader("Detailed Match Results")
-
+    # DETAILS
+    st.subheader("📘 Detailed Match Results")
     for res in all_results:
         st.write(f"### 🏨 {res['Base Property']}")
         st.write(f"**Status:** {res['Status']}")
@@ -180,9 +211,9 @@ if uploaded is not None:
         st.write("---")
 
     # ============================================================
-    # EXCEL DOWNLOAD
+    # DOWNLOAD
     # ============================================================
-    st.subheader("Download Final Results")
+    st.subheader("⬇️ Download Final Results")
 
     output_buffer = io.BytesIO()
     with pd.ExcelWriter(output_buffer, engine="xlsxwriter") as writer:
@@ -190,8 +221,7 @@ if uploaded is not None:
 
         for idx, res in enumerate(all_results):
             if res["Results"] is not None:
-                sheet = f"Property_{idx+1}"
-                res["Results"].to_excel(writer, sheet_name=sheet, index=False)
+                res["Results"].to_excel(writer, sheet_name=f"Property_{idx+1}", index=False)
 
     st.download_button(
         label="Download Excel Results",
@@ -199,6 +229,3 @@ if uploaded is not None:
         file_name="comparison_results_final.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
-
-
