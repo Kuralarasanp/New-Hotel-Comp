@@ -51,7 +51,7 @@ hotel_class_map = {
 # ============================================================
 # STREAMLIT UI
 # ============================================================
-st.title("🏨 Hotel Tax Assessment Comparator")
+st.title("🏨 Hotel Comparable Matcher Tool")
 st.write("Upload file → choose tolerance → select subjects → run → view results → download output.")
 
 uploaded = st.file_uploader("📂 Upload Excel File", type=["xlsx"])
@@ -63,7 +63,7 @@ reduction_mode = st.radio(
 )
 
 if reduction_mode == "Manual":
-    MV_TOLERANCE = st.slider("Select ±Percentage", 1, 100, 20) / 100
+    MV_TOLERANCE = st.number_input("🔽🔼 Market Value Increase/decrease Filter %", 0.0, 500.0, 20, 1.0)
 else:
     MV_TOLERANCE = 0.20
 
@@ -92,23 +92,21 @@ if uploaded is not None:
     # ============================================================
     # SUBJECT SELECTION
     # ============================================================
-    st.subheader("Select Subject Property(s)")
+    Property_Address = df['Property Address'].dropna().astype(str).str.strip().tolist()
 
-    subject_list = df["Project / Hotel Name"].unique().tolist()
-
-    selection = st.multiselect(
-        "Choose Subject(s)",
-        options=["Select All"] + subject_list,
-        default="Select All"
+    selected_hotels = st.multiselect(
+        "🏨 Select Property Address",
+        options=["[SELECT ALL]"] + Property_Address,
+        default=["[SELECT ALL]"]
     )
 
-    if "Select All" in selection:
-        selected_subjects = subject_list
+    if "[SELECT ALL]" in selected_hotels:
+        selected_rows = df.copy()
     else:
-        selected_subjects = selection
+        selected_rows = df[df['Property Address'].isin(selected_hotels)]
 
     # RUN BUTTON
-    run_process = st.button("▶️ Run Comparison")
+    run_process = st.button("🚀 Run Matching")
 
     if not run_process:
         st.warning("Click **Run Comparison** to generate results.")
@@ -229,3 +227,4 @@ if uploaded is not None:
         file_name="comparison_results_final.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
