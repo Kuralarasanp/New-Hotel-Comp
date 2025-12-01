@@ -1,4 +1,4 @@
->>> import streamlit as st
+... import streamlit as st
 ... import pandas as pd
 ... import numpy as np
 ... from fuzzywuzzy import fuzz
@@ -199,4 +199,5 @@ if uploaded is not None:
         file_name="comparison_results_final.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
