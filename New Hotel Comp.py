@@ -1,19 +1,18 @@
+import streamlit as st
 import pandas as pd
 import numpy as np
 import os
 from fuzzywuzzy import fuzz
-import streamlit as st
 
 # ============================================================
 # CONFIG — TOLERANCE SETTINGS
 # ============================================================
-MV_TOLERANCE = 0.20  # Default 20% range for Market Value match (–0.2 to +0.2)
+MV_TOLERANCE = 0.20   # Default 20% range for Market Value match (–0.2 to +0.2)
 
 # ============================================================
 # SAFE VALUE FOR EXCEL (Fixes NaN/INF problem)
 # ============================================================
 def safe_excel_value(val):
-    """Convert invalid Excel values (NaN/inf) into empty strings."""
     try:
         if pd.isna(val) or (isinstance(val, float) and (np.isnan(val) or np.isinf(val))):
             return ""
@@ -50,37 +49,23 @@ def get_state_tax_rate(state):
     return state_tax_rates.get(state, 0)
 
 # ============================================================
-# MATCHING HELPERS
-# ============================================================
-def get_nearest_three(df, mv, vpr):
-    df = df.copy()
-    df["dist"] = ((df["Market Value-2024"] - mv)**2 +
-                  (df["2024 VPR"] - vpr)**2)**0.5
-    return df.sort_values("dist").head(3).drop(columns="dist")
-
-def get_least_one(df):
-    return df.sort_values(["Market Value-2024","2024 VPR"], ascending=[True,True]).head(1)
-
-def get_top_one(df):
-    return df.sort_values(["Market Value-2024","2024 VPR"], ascending=[False,False]).head(1)
-
-# ============================================================
-# Streamlit Main Function
+# MAIN STREAMLIT FUNCTION
 # ============================================================
 def main():
     st.title("🏨 Hotel Comparable Matcher Tool final")
 
-    # File Upload Section
+    # Upload Excel File
     uploaded_file = st.file_uploader("📤 Upload Excel File", type=["xlsx"])
 
     if uploaded_file:
-        # Load the DataFrame
+        # Load data into DataFrame
         df = pd.read_excel(uploaded_file)
         df.columns = [col.strip() for col in df.columns]
         for col in ['No. of Rooms', 'Market Value-2024', '2024 VPR']:
             df[col] = pd.to_numeric(df[col], errors='coerce')
         df = df.dropna(subset=['No. of Rooms', 'Market Value-2024', '2024 VPR'])
-
+        
+        # Prepare Hotel Class Map
         hotel_class_map = {
             "Budget (Low End)": 1,
             "Economy (Name Brand)": 2,
@@ -95,14 +80,22 @@ def main():
         df = df.dropna(subset=["Hotel Class Order"])
         df["Hotel Class Order"] = df["Hotel Class Order"].astype(int)
 
-        # Property Address Selection
+        # Property Address Selection (with "Select All" option)
         property_address_options = df['Property Address'].unique()
-        selected_addresses = st.multiselect("🏨 Select Property Address", property_address_options.tolist(), default=property_address_options.tolist())
+        selected_addresses = st.multiselect(
+            "🏨 Select Property Address", property_address_options.tolist(), default=property_address_options.tolist())
 
-        # Market Value Filter Mode
+        # Market Value Filter: Automated or Manual
         reduction_mode = st.radio("🔽🔼 Market Value Filter Mode", ["Automated", "Manual"])
+        
         if reduction_mode == "Manual":
-            MV_TOLERANCE = st.number_input("🔽🔼 Market Value Increase/Decrease Filter (%)", min_value=0.0, max_value=500.0, value=20.0, step=1.0) / 100
+            MV_TOLERANCE = st.number_input(
+                "🔽🔼 Market Value Increase/Decrease Filter (%)",
+                min_value=0.0,
+                max_value=500.0,
+                value=20.0,  # Default is 20%
+                step=1.0
+            ) / 100
         else:
             MV_TOLERANCE = 0.20  # Default automated filter
 
@@ -120,7 +113,7 @@ def main():
             match_case_count = 0
             no_match_case_count = 0
 
-            # Main Matching Loop
+            # Main Matching Logic
             for i in range(len(filtered_df)):
                 base = filtered_df.iloc[i]
                 mv = base['Market Value-2024']
