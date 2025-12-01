@@ -1,38 +1,38 @@
-... import streamlit as st
-... import pandas as pd
-... import numpy as np
-... from fuzzywuzzy import fuzz
-... import io
-... 
-... # ============================================================
-... # HELPERS
-... # ============================================================
-... def safe_excel_value(val):
-...     try:
-...         if pd.isna(val) or (isinstance(val, float) and (np.isnan(val) or np.isinf(val))):
-...             return ""
-...         return val
-...     except:
-...         return ""
-... 
-... def normalize_string(s):
-...     return ''.join(e for e in str(s).lower() if e.isalnum())
-... 
-... def get_state_tax_rate(state):
-...     return state_tax_rates.get(state, 0)
-... 
-... def fuzzy_match(val, query, threshold=90):
-...     if pd.isna(val):
-...         return False
-...     return fuzz.partial_ratio(str(val).lower(), str(query).lower()) >= threshold
-... 
-... 
-... # ============================================================
-... # STATE TAX RATES
-... # ============================================================
-... state_tax_rates = {
-...     'Alabama': 0.0039, 'Arkansas': 0.0062, 'Arizona': 0.0066, 'California': 0.0076,
-...     'Colorado': 0.0051, 'Connecticut': 0.0214, 'Florida': 0.0089, 'Georgia': 0.0083,
+import streamlit as st
+import pandas as pd
+import numpy as np
+from fuzzywuzzy import fuzz
+import io
+
+# ============================================================
+# HELPERS
+# ============================================================
+def safe_excel_value(val):
+    try:
+        if pd.isna(val) or (isinstance(val, float) and (np.isnan(val) or np.isinf(val))):
+            return ""
+        return val
+    except:
+        return ""
+ 
+def normalize_string(s):
+    return ''.join(e for e in str(s).lower() if e.isalnum())
+
+def get_state_tax_rate(state):
+    return state_tax_rates.get(state, 0)
+
+def fuzzy_match(val, query, threshold=90):
+    if pd.isna(val):
+        return False
+    return fuzz.partial_ratio(str(val).lower(), str(query).lower()) >= threshold
+
+ 
+# ============================================================
+# STATE TAX RATES
+# ============================================================
+state_tax_rates = {
+    'Alabama': 0.0039, 'Arkansas': 0.0062, 'Arizona': 0.0066, 'California': 0.0076,
+    'Colorado': 0.0051, 'Connecticut': 0.0214, 'Florida': 0.0089, 'Georgia': 0.0083,
     'Iowa': 0.0157, 'Idaho': 0.0069, 'Illinois': 0.0210, 'Indiana': 0.0085,
     'Kansas': 0.0133, 'Kentucky': 0.0080, 'Louisiana': 0.0000, 'Massachusetts': 0.0112,
     'Maryland': 0.0109, 'Michigan': 0.0154, 'Missouri': 0.0097, 'Mississippi': 0.0075,
@@ -199,5 +199,6 @@ if uploaded is not None:
         file_name="comparison_results_final.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
 
