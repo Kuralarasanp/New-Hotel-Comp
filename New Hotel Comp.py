@@ -54,7 +54,8 @@ def get_state_tax_rate(state):
 # ============================================================
 def get_nearest_three(df, mv, vpr):
     df = df.copy()
-    df["dist"] = ((df["Market Value-2024"] - mv)**2 + (df["2024 VPR"] - vpr)**2)**0.5
+    df["dist"] = ((df["Market Value-2024"] - mv)**2 +
+                  (df["2024 VPR"] - vpr)**2)**0.5
     return df.sort_values("dist").head(3).drop(columns="dist")
 
 def get_least_one(df):
@@ -141,40 +142,13 @@ def main():
 
                 if not matches.empty:
                     match_case_count += 1
-                    # Get the nearest matches
-                    nearest = get_nearest_three(matches, mv, vpr)
-                    rem = matches.drop(nearest.index)
-
-                    least = get_least_one(rem)
-                    rem = rem.drop(least.index)
-
-                    top = get_top_one(rem)
-
-                    selected = pd.concat([nearest, least, top]).head(max_matches).reset_index(drop=True)
-                    results.append({
-                        'Property Address': base['Property Address'],
-                        'State': base['State'],
-                        'Property County': base['Property County'],
-                        'Project / Hotel Name': base['Project / Hotel Name'],
-                        'Owner Name/ LLC Name': base['Owner Name/ LLC Name'],
-                        'No. of Rooms': base['No. of Rooms'],
-                        'Market Value-2024': base['Market Value-2024'],
-                        '2024 VPR': base['2024 VPR'],
-                        'Hotel Class': base['Hotel Class'],
-                        'Matching Results Count / Status': f"Total: {len(matches)} | Selected: {len(selected)}",
-                        'OverPaid': '',  # This can be calculated later if needed
-                        **{
-                            f"Result{r+1} Column1": selected.iloc[r]['Project / Hotel Name'] if r < len(selected) else '',
-                            f"Result{r+1} Column2": selected.iloc[r]['Market Value-2024'] if r < len(selected) else ''
-                            for r in range(max_matches)
-                        }
-                    })
+                    results.append(matches.head(max_matches))
                 else:
                     no_match_case_count += 1
 
-            # Prepare result DataFrame
+            # Display results table
             if results:
-                result_df = pd.DataFrame(results)
+                result_df = pd.concat(results)
                 st.write(f"Input Rows: {len(filtered_df)}")
                 st.write(f"Output Matches: {match_case_count} | No Matches: {no_match_case_count}")
                 st.write(result_df)
@@ -182,6 +156,7 @@ def main():
                 # Provide download button for results
                 csv = result_df.to_csv(index=False)
                 st.download_button("Download Full Results", csv, file_name="matching_results.csv", mime="text/csv")
+
             else:
                 st.write("No matches found!")
 
