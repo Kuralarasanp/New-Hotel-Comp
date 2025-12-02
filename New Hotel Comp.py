@@ -105,6 +105,30 @@ if uploaded_file:
     st.write("✅ Uploaded data preview:")
     st.dataframe(df.head())
 
+    # ============================================================
+    # SUBJECT PROPERTY SELECTION (WITH SELECT ALL)
+    # ============================================================
+    property_list = df["Property Address"].dropna().unique().tolist()
+    property_list.sort()
+
+    select_all = st.checkbox("Select All Properties", value=True)
+
+    if select_all:
+        selected_properties = property_list
+    else:
+        selected_properties = st.multiselect(
+            "Choose Subject Property Address",
+            options=property_list,
+            default=property_list[:1]
+        )
+
+    # Filter DF based on selection
+    df = df[df["Property Address"].isin(selected_properties)]
+    
+    # ============================================================
+    # GENERATE BUTTON
+    # ============================================================
+
     if st.button("Generate Comparison Excel"):
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -242,3 +266,4 @@ if uploaded_file:
             file_name="comparison_results_streamlit.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
