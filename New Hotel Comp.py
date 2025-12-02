@@ -148,13 +148,16 @@ def main():
     if uploaded_file:
         df = load_data(uploaded_file)
 
-        # Step 2: Select Properties
-        properties = df['Property Address'].unique()
-        selected_properties = st.multiselect(
-            "🏨 Select Property Address",
-            options=properties,
-            default=properties[:5]  # Default first 5 properties
-        )
+        selected_hotels = st.multiselect(
+        "🏨 Select Property Address",
+        options=["[SELECT ALL]"] + Property_Address,
+        default=["[SELECT ALL]"]
+    )
+
+    if "[SELECT ALL]" in selected_hotels:
+        selected_rows = df.copy()
+    else:
+        selected_rows = df[df['Property Address'].isin(selected_hotels)]
 
         # Step 3: Market Value Filter
         reduction_mode = st.radio(
@@ -200,3 +203,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
