@@ -159,7 +159,7 @@ if uploaded_file:
     # GENERATE BUTTON
     # ============================================================
 
-    if st.button("Generate Comparison Excel"):
+    if st.button("🚀 Run Matching"):
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             workbook = writer.book
@@ -295,4 +295,5 @@ if uploaded_file:
             file_name="comparison_results_streamlit.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
