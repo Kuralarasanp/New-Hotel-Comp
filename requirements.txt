@@ -3,5 +3,4 @@ pandas
 numpy
 openpyxl
 xlsxwriter
-fuzzywuzzy
-python-Levenshtein
+rapidfuzz
