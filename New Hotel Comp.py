@@ -165,7 +165,6 @@ if uploaded_file:
         with st.spinner("🔍 Matching hotels, please wait..."):
 
             result_records = []  # for summary later
-            preview_records = []  # for displaying full output
 
             output = BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -236,8 +235,19 @@ if uploaded_file:
                     # Track match status for summary
                     result_records.append("Match" if not matches.empty else "No_Match_Case")
 
-                    # --- Build preview row ---
-                    preview_row = base.to_dict()
+                    # Write base row
+                    for c, colname in enumerate(match_columns):
+                        if colname == "Hotel Class Number":
+                            val = base["Hotel Class Order"]
+                            worksheet.write(row, c, safe_excel_value(val), border)
+                        else:
+                            val = safe_excel_value(base[colname])
+                            if colname == "Market Value-2024":
+                                worksheet.write(row, c, val, currency0)
+                            elif colname == "2024 VPR":
+                                worksheet.write(row, c, val, currency2)
+                            else:
+                                worksheet.write(row, c, val, border)
 
                     if not matches.empty:
                         nearest = get_nearest_three(matches, mv, vpr)
@@ -247,39 +257,44 @@ if uploaded_file:
                         top = get_top_one(rem)
                         selected = pd.concat([nearest, least, top]).head(max_matches).reset_index(drop=True)
 
-                        preview_row["Matching Results Count / Status"] = f"Total: {len(matches)} | Selected: {len(selected)}"
+                        worksheet.write(row, status_col, f"Total: {len(matches)} | Selected: {len(selected)}", border)
 
                         median_vpr = selected["2024 VPR"].head(3).median()
                         state_rate = get_state_tax_rate(base["State"])
                         assessed = median_vpr * rooms * state_rate
                         subject_tax = mv * state_rate
                         overpaid = subject_tax - assessed
-                        preview_row["OverPaid"] = overpaid
+                        worksheet.write(row, status_col + 1, safe_excel_value(overpaid), currency2)
 
-                        # Add selected results
+                        col = status_col + 2
                         for r in range(max_matches):
                             if r < len(selected):
                                 row_df = selected.iloc[r]
-                                for colname in df.columns:
-                                    key = f"Result{r+1}_{colname}"
-                                    preview_row[key] = row_df[colname]
-                                preview_row[f"Result{r+1}_Hotel Class Number"] = row_df["Hotel Class Order"]
+                                for colname in all_columns:
+                                    val = safe_excel_value(row_df[colname])
+                                    if colname == "Market Value-2024":
+                                        worksheet.write(row, col, val, currency0)
+                                    elif colname == "2024 VPR":
+                                        worksheet.write(row, col, val, currency2)
+                                    elif colname == "Hotel Class Order":
+                                        label = next((k for k,v in hotel_class_map.items() if v == row_df[colname]), "")
+                                        worksheet.write(row, col, safe_excel_value(label), border)
+                                        col += 1
+                                        worksheet.write(row, col, safe_excel_value(row_df[colname]), border)
+                                    else:
+                                        worksheet.write(row, col, val, border)
+                                    col += 1
                             else:
-                                for colname in df.columns:
-                                    key = f"Result{r+1}_{colname}"
-                                    preview_row[key] = ""
-                                preview_row[f"Result{r+1}_Hotel Class Number"] = ""
+                                for colname in all_columns:
+                                    worksheet.write(row, col, "", border)
+                                    col += 1
                     else:
-                        preview_row["Matching Results Count / Status"] = "No_Match_Case"
-                        preview_row["OverPaid"] = ""
+                        worksheet.write(row, status_col, "No_Match_Case", border)
+                        worksheet.write(row, status_col + 1, "", border)
 
-                    preview_records.append(preview_row)
+                    row += 1
 
-                    # Write to Excel (existing code) ...
-                    # [Excel writing code unchanged]
-
-                # Convert preview records to DataFrame
-                preview_df = pd.DataFrame(preview_records)
+                worksheet.freeze_panes(1, 0)
 
             processed_data = output.getvalue()
 
@@ -299,12 +314,6 @@ if uploaded_file:
         st.write(f"- Total processed: {total}")
         st.write(f"- Matches found: {matches_found}")
         st.write(f"- No matches: {no_matches}")
-
-        # ------------------------------------------------------------
-        # ✔️ SHOW FULL EXCEL PREVIEW
-        # ------------------------------------------------------------
-        st.write("📊 Full Excel Output Preview:")
-        st.dataframe(preview_df)
 
         # ------------------------------------------------------------
         # DOWNLOAD BUTTON
