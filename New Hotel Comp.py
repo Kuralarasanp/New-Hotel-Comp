@@ -204,12 +204,13 @@ if uploaded_file:
                 row += 1
 
                 # MAIN LOOP
-                for i in range(len(df)):
-                    base = df.iloc[i]
+                for i in range(len(selected_rows)):
+                    base = selected_rows.iloc[i]
                     mv = base['Market Value-2024']
                     vpr = base['2024 VPR']
                     rooms = base["No. of Rooms"]
-                    subset = df[df.index != i]
+         # Make subset exclude current row from the full df still           
+                    subset = df[df.index != base.name]  # Keep using full df for matching pool
 
                     allowed = {
                         1:[1,2,3],2:[1,2,3,4],3:[2,3,4,5],4:[3,4,5,6],
@@ -324,3 +325,4 @@ if uploaded_file:
             file_name="comparison_results_streamlit.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
