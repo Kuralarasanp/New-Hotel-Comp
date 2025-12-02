@@ -122,6 +122,27 @@ if uploaded_file:
         selected_rows = df[df['Property Address'].isin(selected_Address)]
 
     # ============================================================
+    # MARKET VALUE FILTER MODE (AUTO / MANUAL)
+    # ============================================================
+    reduction_mode = st.radio(
+        "📊 Market Value Increase/Decrease Filter Mode",
+        ["Automated (Default 20%)", "Manual"],
+        horizontal=True
+    )
+
+    if reduction_mode == "Manual":
+        MV_TOLERANCE = st.number_input(
+            "🔽🔼 Market Value Increase/Decrease Filter (%)",
+            min_value=0.0,
+            max_value=500.0,
+            value=20.0,
+            step=1.0
+        ) / 100
+    else:
+        MV_TOLERANCE = 0.20
+
+
+    # ============================================================
     # GENERATE BUTTON
     # ============================================================
 
@@ -262,5 +283,6 @@ if uploaded_file:
             file_name="comparison_results_streamlit.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
