@@ -169,7 +169,7 @@ if uploaded_file:
             # Formats
             header = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#D9E1F2'})
             border = workbook.add_format({'border': 1})
-            currency0 = workbook.add_format({'num_format': '$#,##0', 'border': 1'})
+            currency0 = workbook.add_format({'num_format': '$#,##0', 'border': 1})
             currency2 = workbook.add_format({'num_format': '$#,##0.00', 'border': 1})
 
             match_columns = [
@@ -295,3 +295,4 @@ if uploaded_file:
             file_name="comparison_results_streamlit.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
