@@ -104,10 +104,11 @@ if uploaded_file:
 
     st.write("✅ Uploaded data preview:")
     st.dataframe(df.head())
-
+    
     # ============================================================
     # SUBJECT PROPERTY SELECTION (WITH SELECT ALL)
     # ============================================================
+  
     Property_Address = df['Property Address'].dropna().astype(str).str.strip().tolist()
 
     selected_Address = st.multiselect(
@@ -141,6 +142,18 @@ if uploaded_file:
     else:
         MV_TOLERANCE = 0.20
 
+    # ============================================================
+    # MAX MATCHES PER HOTEL (NEW FEATURE)
+    # ============================================================
+    max_matches = st.number_input(
+        "🔢 Max Matches Per Hotel (1–10)",
+        min_value=1,
+        max_value=10,
+        value=5,
+        step=1
+    )
+
+    max_results_per_row = max_matches
 
     # ============================================================
     # GENERATE BUTTON
@@ -156,7 +169,7 @@ if uploaded_file:
             # Formats
             header = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#D9E1F2'})
             border = workbook.add_format({'border': 1})
-            currency0 = workbook.add_format({'num_format': '$#,##0', 'border': 1})
+            currency0 = workbook.add_format({'num_format': '$#,##0', 'border': 1'})
             currency2 = workbook.add_format({'num_format': '$#,##0.00', 'border': 1})
 
             match_columns = [
@@ -165,7 +178,6 @@ if uploaded_file:
                 '2024 VPR', 'Hotel Class', 'Hotel Class Number'
             ]
             all_columns = list(df.columns)
-            max_results_per_row = 5
             row = 0
             status_col = len(match_columns)
 
@@ -234,7 +246,7 @@ if uploaded_file:
                     least = get_least_one(rem)
                     rem = rem.drop(least.index)
                     top = get_top_one(rem)
-                    selected = pd.concat([nearest, least, top]).head(5).reset_index(drop=True)
+                    selected = pd.concat([nearest, least, top]).head(max_matches).reset_index(drop=True)
 
                     worksheet.write(row, status_col, f"Total: {len(matches)} | Selected: {len(selected)}", border)
 
@@ -246,7 +258,7 @@ if uploaded_file:
                     worksheet.write(row, status_col + 1, safe_excel_value(overpaid), currency2)
 
                     col = status_col + 2
-                    for r in range(5):
+                    for r in range(max_matches):
                         if r < len(selected):
                             row_df = selected.iloc[r]
                             for colname in all_columns:
@@ -283,6 +295,3 @@ if uploaded_file:
             file_name="comparison_results_streamlit.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
-
-
