@@ -83,7 +83,7 @@ def get_top_one(df):
 # STREAMLIT UI
 # ============================================================
 st.set_page_config(page_title="Hotel Comparison Tool", layout="wide")
-st.title("🏨 Hotel Market Value & VPR Comparison Tool")
+st.title("🏨 Hotel Comparable Matcher Tool Final")
 st.markdown("Upload your Excel file, and the app will generate comparison results with overpaid calculation.")
 
 uploaded_file = st.file_uploader("📤 Upload Excel File", type=["xlsx"])
@@ -224,8 +224,8 @@ if uploaded_file:
                         (subset['State'] == base['State']) &
                         (subset['Property County'] == base['Property County']) &
                         (subset['No. of Rooms'] < rooms) &
-                        (subset['Market Value-2024'].between(mv_min, mv_max)) &
                         (subset['2024 VPR'] < vpr) &
+                        (subset['Market Value-2024'].between(mv_min, mv_max)) &
                         (subset['Hotel Class Order'].isin(allowed))
                     )
 
@@ -334,4 +334,5 @@ if uploaded_file:
             file_name="comparison_results_streamlit.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
