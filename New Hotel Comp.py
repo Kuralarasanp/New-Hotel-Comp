@@ -209,7 +209,7 @@ if uploaded_file:
                     mv = base['Market Value-2024']
                     vpr = base['2024 VPR']
                     rooms = base["No. of Rooms"]
-                # Make subset exclude current row from the full df still           
+                    # Make subset exclude current row from the full df still           
                     subset = df[df.index != base.name]  # Keep using full df for matching pool
 
                     allowed = {
@@ -299,9 +299,8 @@ if uploaded_file:
 
             processed_data = output.getvalue()
 
-        # Convert generated Excel bytes into a DataFrame preview
-         preview_df = pd.read_excel(BytesIO(processed_data))
-
+        # ✅ FIXED INDENTATION HERE
+        preview_df = pd.read_excel(BytesIO(processed_data))
 
         # ------------------------------------------------------------
         # ✔️ AFTER PROCESSING COMPLETE MESSAGE
@@ -335,4 +334,3 @@ if uploaded_file:
             file_name="comparison_results_streamlit.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
