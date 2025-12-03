@@ -159,12 +159,9 @@ if uploaded_file:
     # ============================================================
     if st.button("🚀 Run Matching"):
 
-        # ------------------------------------------------------------
-        # 🔍 SHOW "PLEASE WAIT" MESSAGE WHILE RUNNING
-        # ------------------------------------------------------------
         with st.spinner("🔍 Matching hotels, please wait..."):
 
-            result_records = []  # for summary later
+            result_records = []
 
             output = BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -209,8 +206,7 @@ if uploaded_file:
                     mv = base['Market Value-2024']
                     vpr = base['2024 VPR']
                     rooms = base["No. of Rooms"]
-                    # Make subset exclude current row from the full df still           
-                    subset = df[df.index != base.name]  # Keep using full df for matching pool
+                    subset = df[df.index != base.name]
 
                     allowed = {
                         1:[1,2,3],2:[1,2,3,4],3:[2,3,4,5],4:[3,4,5,6],
@@ -233,7 +229,6 @@ if uploaded_file:
                         subset=['Project / Hotel Name','Property Address','Owner Name/ LLC Name']
                     )
 
-                    # Track match status for summary
                     result_records.append("Match" if not matches.empty else "No_Match_Case")
 
                     # Write base row
@@ -253,10 +248,20 @@ if uploaded_file:
                     if not matches.empty:
                         nearest = get_nearest_three(matches, mv, vpr)
                         rem = matches.drop(nearest.index)
-                        least = get_least_one(rem)
+
+                        # --------- LEAST LOGIC ADJUSTED FOR MAX_MATCHES ----------
+                        remaining_slots = max_matches - len(nearest)
+                        if remaining_slots > 0:
+                            least = rem.sort_values(
+                                ["Market Value-2024", "2024 VPR"], ascending=[True, True]
+                            ).head(remaining_slots - 1)
+                        else:
+                            least = pd.DataFrame()
                         rem = rem.drop(least.index)
                         top = get_top_one(rem)
+
                         selected = pd.concat([nearest, least, top]).head(max_matches).reset_index(drop=True)
+                        # --------------------------------------------------------
 
                         worksheet.write(row, status_col, f"Total: {len(matches)} | Selected: {len(selected)}", border)
 
@@ -298,24 +303,12 @@ if uploaded_file:
                 worksheet.freeze_panes(1, 0)
 
             processed_data = output.getvalue()
+            preview_df = pd.read_excel(BytesIO(processed_data))
 
-        # ✅ FIXED INDENTATION HERE
-        preview_df = pd.read_excel(BytesIO(processed_data))
-
-        # ------------------------------------------------------------
-        # ✔️ AFTER PROCESSING COMPLETE MESSAGE
-        # ------------------------------------------------------------
         st.success("✅ Matching Completed")
-
-        # ------------------------------------------------------------
-        # ✔️ SHOW FULL EXCEL PREVIEW
-        # ------------------------------------------------------------
-        st.write("📊 Full Excel Output Preview:") 
+        st.write("📊 Full Excel Output Preview:")
         st.dataframe(preview_df)
 
-        # ------------------------------------------------------------
-        # ✔️ SUMMARY
-        # ------------------------------------------------------------
         total = len(result_records)
         matches_found = result_records.count("Match")
         no_matches = result_records.count("No_Match_Case")
@@ -325,14 +318,9 @@ if uploaded_file:
         st.write(f"- Matches found: {matches_found}")
         st.write(f"- No matches: {no_matches}")
 
-        # ------------------------------------------------------------
-        # DOWNLOAD BUTTON
-        # ------------------------------------------------------------
         st.download_button(
             label="📥 Download Processed Excel",
             data=processed_data,
             file_name="comparison_results_streamlit.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
-
