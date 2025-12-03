@@ -299,10 +299,20 @@ if uploaded_file:
 
             processed_data = output.getvalue()
 
+        # Convert generated Excel bytes into a DataFrame preview
+         preview_df = pd.read_excel(BytesIO(processed_data))
+
+
         # ------------------------------------------------------------
         # ✔️ AFTER PROCESSING COMPLETE MESSAGE
         # ------------------------------------------------------------
         st.success("✅ Matching Completed")
+
+        # ------------------------------------------------------------
+        # ✔️ SHOW FULL EXCEL PREVIEW
+        # ------------------------------------------------------------
+        st.write("📊 Full Excel Output Preview:") 
+        st.dataframe(preview_df)
 
         # ------------------------------------------------------------
         # ✔️ SUMMARY
