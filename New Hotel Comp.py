@@ -176,7 +176,7 @@ if uploaded_file:
                 currency2 = workbook.add_format({'num_format': '$#,##0.00', 'border': 1})
 
                 match_columns = [
-                    'Property Address', 'State', 'Property County', 'Project / Hotel Name',
+                    'Property Address', 'State', 'Property County', 'Project / Hotel Name', 'Property Account No',
                     'Owner Name/ LLC Name', 'No. of Rooms', 'Market Value-2024',
                     '2024 VPR', 'Hotel Class', 'Hotel Class Number'
                 ]
@@ -324,3 +324,4 @@ if uploaded_file:
             file_name="comparison_results_streamlit.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
